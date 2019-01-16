@@ -1,63 +1,93 @@
 package mastery.com.mastery;
 
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.support.annotation.Nullable;
+import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
-import mastery.com.mastery.components.SkillStatsView;
-import mastery.com.mastery.persist.MasteryDB;
 import mastery.com.mastery.persist.Skill;
-import mastery.com.mastery.persist.SkillDAO;
+import mastery.com.mastery.persist.SkillViewModel;
 
-public class SkillHub extends AppCompatActivity {
+public class SkillHub extends AppCompatActivity implements ConfirmDeleteDialog.ConfirmDeleteDialogListener {
 
-    private Skill skill;
-    SkillStatsView stats;
+    private final static String SKILL_NAME = "skill_name";
+    private SkillViewModel skillModel;
+    private TextView rankText;
+    private TextView levelText;
+    private TextView hoursText;
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_skill_hub);
+
         Toolbar toolBar = findViewById(R.id.toolbar);
         setSupportActionBar(toolBar);
-        setContentView(R.layout.activity_skill_hub);
+
+        rankText = (TextView) findViewById(R.id.rank);
+        levelText = (TextView) findViewById(R.id.level);
+        hoursText = (TextView) findViewById(R.id.hours);
+        progressBar = (ProgressBar) findViewById(R.id.progressBar);
+
         Intent intent = getIntent();
-        int skillId = intent.getIntExtra("skill_id", 0);
-        new SkillFetcher().execute(skillId);
+        String skillName = intent.getStringExtra(SKILL_NAME);
+        setTitle(skillName);
+
+        skillModel = ViewModelProviders.of(this).get(SkillViewModel.class);
+        skillModel.setSkill(skillName);
+        skillModel.getSkill().observe(this, new Observer<Skill>() {
+            @Override
+            public void onChanged(@Nullable Skill skill) {
+                if(skill != null) {
+                    rankText.setText(skill.getRank());
+                    levelText.setText(String.valueOf(skill.level));
+                    hoursText.setText(String.valueOf(skill.getHours()));
+                    progressBar.setProgress(skill.getProgress());
+                }
+            }
+        });
     }
 
-    public void deleteSkill(View view) {
-        DeleteSkill task = new DeleteSkill();
-        task.execute(skill);
-        Intent intent = new Intent(this, MySkills.class);
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_skill_hub, menu);
+        return true;
     }
 
-    private class SkillFetcher extends AsyncTask<Integer, Void, Skill>{
-
-        @Override
-        protected Skill doInBackground(Integer... ids) {
-            int skillId = ids[0];
-            MasteryDB db = MasteryDB.getInstance(getApplicationContext());
-            SkillDAO dao = db.skillDao();
-            return dao.getSkill(skillId);
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.delete) {
+            ConfirmDeleteDialog deleteDialog = new ConfirmDeleteDialog();
+            deleteDialog.show(getSupportFragmentManager(), "delete_skill");
+            return true;
         }
+        return super.onOptionsItemSelected(item);
+    }
 
-        @Override
-        protected void onPostExecute(Skill result){
-            skill = result;
+    @Override
+    public void onPositiveClick(DialogFragment dialog) {
+        Skill skill  = skillModel.getSkill().getValue();
+        if(skill != null) {
+            String title = skill.title;
+            skillModel.deleteSkill(title);
+            Intent intent = new Intent(this, MySkills.class);
+            startActivity(intent);
+            finish();
         }
     }
 
-    private class DeleteSkill extends AsyncTask<Skill, Void, Void>{
-
-        @Override
-        protected Void doInBackground(Skill... skills) {
-            MasteryDB db = MasteryDB.getInstance(getApplicationContext());
-            SkillDAO dao = db.skillDao();
-            dao.delete(skills[0]);
-            return null;
-        }
+    @Override
+    public void onNegativeClick(DialogFragment dialog) {
+        dialog.getDialog().cancel();
     }
 }

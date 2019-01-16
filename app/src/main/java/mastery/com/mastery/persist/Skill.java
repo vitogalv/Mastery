@@ -54,7 +54,12 @@ public class Skill implements Comparable<Skill> {
     }
 
     public int getHours(){
-        return  level * 20 + (int)(minutes / 60);
+        int inProgressHours = (int)(minutes / 60);
+        if(level > 1){
+            return  level * 20 + inProgressHours;
+        }else{
+            return inProgressHours;
+        }
     }
 
     @Override

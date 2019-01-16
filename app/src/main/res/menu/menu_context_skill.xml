@@ -2,10 +2,11 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="mastery.com.mastery.MySkills">
+
     <item
-        android:id="@+id/action_settings"
+        android:id="@+id/delete"
         android:orderInCategory="100"
-        android:icon="@drawable/settings"
-        android:title="@string/action_settings"
-        app:showAsAction="ifRoom" />
+        android:title="@string/delete"
+        app:showAsAction="never"/>
+
 </menu>

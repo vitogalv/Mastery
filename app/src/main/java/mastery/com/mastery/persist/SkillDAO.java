@@ -1,5 +1,6 @@
 package mastery.com.mastery.persist;
 
+import android.arch.lifecycle.LiveData;
 import android.arch.persistence.room.Dao;
 import android.arch.persistence.room.Delete;
 import android.arch.persistence.room.Insert;
@@ -18,14 +19,21 @@ public interface SkillDAO {
     void updateSkill(Skill skill);
 
     @Query("SELECT * FROM Skill WHERE title = :title")
-    Skill getSkill(String title);
+    LiveData<Skill> getSkill(String title);
 
     @Query("SELECT * FROM Skill WHERE id = :id")
-    Skill getSkill(long id);
+    LiveData<Skill> getSkill(long id);
 
     @Query("SELECT * FROM Skill ORDER BY last_commit")
-    List<Skill> getAll();
+    LiveData<List<Skill>> getAll();
 
     @Delete
-    int delete(Skill... skills);
+    void delete(Skill... skills);
+
+    @Query("DELETE FROM Skill WHERE title = :title")
+    void delete(String title);
+
+    @Query("DELETE FROM Skill")
+    void deleteAll();
+
 }

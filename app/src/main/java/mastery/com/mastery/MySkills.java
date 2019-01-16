@@ -1,35 +1,42 @@
 package mastery.com.mastery;
 
-import android.os.AsyncTask;
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.view.ContextMenu;
+import android.view.MenuInflater;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.LinearLayout;
+import android.widget.AdapterView;
+import android.widget.TextView;
 
 import java.util.List;
-import java.util.TreeMap;
 
-import mastery.com.mastery.components.SkillView;
-import mastery.com.mastery.persist.MasteryDB;
 import mastery.com.mastery.persist.Skill;
-import mastery.com.mastery.persist.SkillDAO;
+import mastery.com.mastery.persist.SkillsViewModel;
 
 public class MySkills extends AppCompatActivity implements NewSkillDialog.NewSkillDialogListener {
 
-    MasteryDB db;
-    TreeMap<Long, Skill> mySkills;
+    RecyclerView skillsRecycler;
+    SkillsAdapter skillsAdapter;
+    SkillsViewModel skillsModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_my_skills);
+
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.add_fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -38,90 +45,70 @@ public class MySkills extends AppCompatActivity implements NewSkillDialog.NewSki
                 newSkillD.show(getSupportFragmentManager(), "new_skill");
             }
         });
-        db = MasteryDB.getInstance(getApplicationContext());
-        mySkills = new TreeMap<>();
-        Populator populator = new Populator();
-        populator.execute();
+
+        skillsRecycler = (RecyclerView)findViewById(R.id.recyclerView);
+        skillsRecycler.setLayoutManager(new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.VERTICAL, false));
+        skillsAdapter = new SkillsAdapter(getApplicationContext());
+        skillsRecycler.setAdapter(skillsAdapter);
+
+        skillsModel = ViewModelProviders.of(this).get(SkillsViewModel.class);
+        skillsModel.getSkills().observe(this, new Observer<List<Skill>>() {
+                    @Override
+                    public void onChanged(@Nullable List<Skill> skills) {
+                        skillsAdapter.setSkills(skills);
+                    }
+                });
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_my_skills, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
         }
-
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo info){
+        super.onCreateContextMenu(menu, v, info);
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_context_skill, menu);
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item){
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        switch(item.getItemId()){
+            case R.id.delete:
+                String title = ((TextView)info.targetView.findViewById(R.id.skill_title)).toString();
+                skillsModel.deleteSkill(title);
+                return true;
+            default:
+                return super.onContextItemSelected(item);
+        }
     }
 
     @Override
     public void onPositiveClick(DialogFragment dialog) {
         NewSkillDialog mDialog = (NewSkillDialog)dialog;
         String skillTitle = mDialog.getSkillTitle();
-        NewSkillCreator task = new NewSkillCreator(skillTitle);
-        task.execute();
+        Skill skill = new Skill();
+        skill.title = skillTitle;
+        skill.level = 1;
+        skill.minutes = 0;
+        skill.lastCommit = System.currentTimeMillis();
+        skillsModel.addSkill(skill);
     }
 
     @Override
     public void onNegativeClick(DialogFragment dialog) {
         dialog.getDialog().cancel();
-    }
-
-    private class Populator extends AsyncTask<Void, Void, List<Skill>> {
-
-        @Override
-        protected List<Skill> doInBackground(Void... voids) {
-            SkillDAO dao = db.skillDao();
-            return dao.getAll();
-        }
-
-        @Override
-        protected void onPostExecute(List<Skill> result){
-            LinearLayout skillContainer = (LinearLayout)findViewById(R.id.skills_content);
-            for(Skill s : result){
-                SkillView skillView = new SkillView(getApplicationContext(), s);
-                skillContainer.addView(skillView);
-            }
-        }
-    }
-
-    private class NewSkillCreator extends AsyncTask<Void, Void, Void>{
-
-        private Skill skill;
-
-        NewSkillCreator(String skillTitle){
-            skill = new Skill();
-            skill.title = skillTitle;
-            skill.level = 1;
-            skill.minutes = 0.0;
-            skill.lastCommit = System.currentTimeMillis();
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            SkillDAO dao = db.skillDao();
-            mySkills.put(skill.lastCommit, skill);
-            dao.insertSkill(skill);
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void result){
-            SkillView skillView = new SkillView(getApplicationContext(), skill);
-            LinearLayout skills = findViewById(R.id.skills_content);
-            skills.addView(skillView, 0);
-        }
     }
 }
